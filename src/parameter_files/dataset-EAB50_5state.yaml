@@ -1,0 +1,37 @@
+# dataset parameters passed to the dataset object
+# 12 hours sleep scored
+DATASET_NAME: "EAB50_5state"
+
+datasetparams:
+  exclude_neural_files:
+    - Headstages_512_Channels_int16_2019-07-06_19-40-34_CORRECTED.bin
+  test_video_files:
+    - e3v817b-20190705T1755-1855.mp4
+    - e3v817b-20190705T1855-1955.mp4
+    - e3v817b-20190705T1955-2055.mp4
+    - e3v817b-20190705T2055-2155.mp4
+    - e3v817b-20190705T2155-2255.mp4
+    - e3v817b-20190705T2255-2355.mp4
+  neural_files_basepath: s3://hengenlab/EAB50_5state/Neural_Data/
+  labels_file: s3://hengenlab/EAB50_5state/Labels/labels_sleepstate_v2.1_EAB50_5state.npz
+  n_channels: 512
+  video_fps: 15
+  regions:
+    - [CP, 0, 64]
+    - [CP, 64, 128]
+    - [M1M2, 128, 192]
+    - [CA1, 192, 256]
+    - [CA1, 256, 320]
+    - [S1, 320, 384]
+    - [SC, 384, 448]
+    - [BADPROBE, 448, 512]
+
+datapreprocessingparams:
+  neural_bin_files_per_sleepstate_file: 288  # 1 file for 24 hours
+  video_files_basepath: s3://hengenlab/EAB50_5state/Video/
+  sleepstate_files_basepath: s3://hengenlab/EAB50_5state/SleepState/
+  syncpulse_files_zip: s3://hengenlab/EAB50_5state/SyncPulse.zip
+  manual_video_neural_offset_sec: 330 # 5m 30s offset, manually computed from file timestamps
+
+flickercalling:
+  transition_labels: "s3://hengenlab/EAB50_5state/flicker-calling/EAB50_1s_transitions_as.csv"

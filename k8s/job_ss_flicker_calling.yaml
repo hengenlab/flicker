@@ -1,0 +1,128 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${USER}-flicker-calling-${DATASET_NAME_LOWERCASE}-${MODEL_SIZE}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: ${USER}-container
+        image: localhost:30081/davidparks21/hlmice:${TAG}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "8"
+            memory: "8Gi"
+          limits:
+            cpu: "16"
+            memory: "24Gi"
+        command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
+        args:
+          - >-
+            python -u scripts/flicker_calling.py
+            --calling-params-file flicker-calling-standard.yaml
+            --dataset-params-file dataset-${DATASET_NAME}.yaml
+            --version-format-string "wnr-v14-perregion-${MODEL_SIZE}-{CHANNEL_FROM:d}-{CHANNEL_TO:d}-run1"
+            --version-format-string "wnr-v14-perregion-${MODEL_SIZE}-{CHANNEL_FROM:d}-{CHANNEL_TO:d}-run2"
+            --version-format-string "wnr-v14-perregion-${MODEL_SIZE}-{CHANNEL_FROM:d}-{CHANNEL_TO:d}-run3"
+            --output "s3://hengenlab/${DATASET_NAME}/flicker-calling/Results/${PARAM_SET}-${DATASET_NAME}-wnr-v14-perregion-${MODEL_SIZE}.csv.zip"
+        env:
+          - name: "AWS_PROFILE"
+            value: "default"
+          - name: "S3_USE_HTTPS"
+            value: "0"
+          - name: "TF_CPP_MIN_LOG_LEVEL"
+            value: "3"
+          - name: "VERSION"
+            value: "${VERSION}"
+          - name: "SAMPLE_WIDTH"
+            value: "${SAMPLE_WIDTH}"
+          - name: "INCLUDE_CHANNELS"
+            value: "${INCLUDE_CHANNELS}"
+          - name: "DATASET_NAME"
+            value: "${DATASET_NAME}"
+          - name: "DATASET_NAME_LOWERCASE"
+            value: "${DATASET_NAME_LOWERCASE}"
+          - name: "USER"
+            value: "${USER}"
+          - name: "CONTAINER"
+            value: "${CONTAINER}"
+          - name: "COMET_LOGGING_CONSOLE"
+            value: "INFO"
+          - name: "COMET_LOGGING_FILE"
+            value: "/tmp/comet.log"
+          - name: "COMET_LOGGING_FILE_LEVEL"
+            value: "DEBUG"
+
+          # Ceph (internal)
+          - name: "ENDPOINT_URL"
+            value: "http://rook-ceph-rgw-nautiluss3.rook"  # ceph internal
+          - name: "S3_ENDPOINT"
+            value: "rook-ceph-rgw-nautiluss3.rook" # ceph internal
+
+#          # SeaweedFS (internal)
+#          - name: "ENDPOINT_URL"
+#            value: "http://seaweed-filer.seaweedfs:8333"  # seaweedFS internal
+#          - name: "S3_ENDPOINT"
+#            value: "seaweed-filer.seaweedfs:8333"  # seaweedFS internal
+
+        volumeMounts:
+
+          # Ceph credentials
+          - name: "prp-s3-credentials"
+            mountPath: "/root/.aws/credentials"
+            subPath: "credentials"
+          - name: "prp-s3-credentials"
+            mountPath: "/root/.s3cfg"
+            subPath: ".s3cfg"
+
+#          # SeaweedFS credentials
+#          - name: "dfparks-credentials"
+#            mountPath: "/root/.aws/credentials"
+#            subPath: "credentials.swfs"
+
+          # kube config
+          - name: "kube-config"
+            mountPath: "/root/.kube"
+          # SystemV shared memory
+          - name: "dshm"
+            mountPath: "/dev/shm"
+
+      tolerations:
+        - key: "nautilus.io/chase-ci"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              # Host blacklist
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                  - suncave-28    # 18nov: gpu is lost
+                  - dtn-gpu2.kreonet.net  # 22 nov gpu is lost
+                  - suncave-15  # 22nov long container creating cycle
+                  - epic001.clemson.edu  # 22nov nvidia driver err
+
+      restartPolicy: Never
+      volumes:
+        # Temporary seaweedFS credentials
+        - name: dfparks-credentials
+          secret:
+            secretName: dfparks-credentials
+        # Secrets file for nautilus s3 credentials .aws/credentials and .s3cfg
+        - name: prp-s3-credentials
+          secret:
+            secretName: prp-s3-credentials
+        - name: kube-config
+          secret:
+            secretName: kube-config
+        # Shared memory (necessary for Python's multiprocessing.shared_memory module to work)
+        - name: dshm
+          emptyDir:
+            medium: Memory

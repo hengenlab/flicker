@@ -1,0 +1,29 @@
+DATASET_NAME: "CAF26_01day"
+
+datasetparams:
+  test_video_files:
+    - e3v81a8-20200809T1309-1409.mp4
+    - e3v81a8-20200809T1409-1509.mp4
+    - e3v81a8-20200809T1509-1609.mp4
+    - e3v81a8-20200809T1609-1709.mp4
+    - e3v81a8-20200809T1709-1809.mp4
+    - e3v81a8-20200809T1809-1909.mp4
+    - e3v81a8-20200809T1909-2009.mp4
+  neural_files_basepath: s3://hengenlab/CAF26_01day/Neural_Data/
+  labels_file: s3://hengenlab/CAF26_01day/Labels/labels_sleepstate_v2.1_CAF26_01day.npz
+  n_channels: 192
+  video_fps: 15
+  regions:
+    - [M1M2, 0, 64]
+    - [CA1, 64, 128]
+    - [S1, 128, 192]
+
+datapreprocessingparams:
+  neural_bin_files_per_sleepstate_file: 72
+  video_files_basepath: s3://hengenlab/CAF26_01day/Video/
+  sleepstate_files_basepath: s3://hengenlab/CAF26_01day/SleepState/
+  syncpulse_files_zip: s3://hengenlab/CAF26_01day/SyncPulse.zip
+  manual_video_neural_offset_sec: -3045  # -0:50:45 offset (neural: 14:00:24, video: 13:09:09)
+
+flickercalling:
+  transition_labels: "s3://hengenlab/CAF26/flicker-calling/CAF26_1s_transitions_hl.xlsx"

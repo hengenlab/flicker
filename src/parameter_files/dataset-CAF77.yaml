@@ -1,0 +1,30 @@
+# dataset parameters passed to the dataset object
+DATASET_NAME: "CAF77"
+
+datasetparams:
+  test_video_files:
+    - e3v819c-20210202T164844-174844.mp4
+    - e3v819c-20210202T174844-184845.mp4
+    - e3v819c-20210202T184845-194845.mp4
+    - e3v819c-20210202T194845-204845.mp4
+    - e3v819c-20210202T204845-214846.mp4
+    - e3v819c-20210202T214846-224846.mp4
+  neural_files_basepath: s3://hengenlab/CAF77/Neural_Data/
+  labels_file: s3://hengenlab/CAF77/Labels/labels_sleepstate_v2.1_CAF77.npz
+  n_channels: 256
+  video_fps: 30
+  regions:
+    - [BADPROBE, 0, 64]
+    - [RSPV, 64, 128]
+    - [ACAD, 128, 192]
+    - [V1V2, 192, 256]
+
+datapreprocessingparams:
+  neural_bin_files_per_sleepstate_file: 288
+  video_files_basepath: s3://hengenlab/CAF77/Video/
+  sleepstate_files_basepath: s3://hengenlab/CAF77/SleepState/
+  syncpulse_files_zip: s3://hengenlab/CAF77/SyncPulse.zip
+  manual_video_neural_offset_sec: 1219  # 20:19 offset (neural: 14:28:24, video: 14:48:43)
+
+flickercalling:
+  transition_labels: "s3://hengenlab/CAF77/flicker-calling/CAF77_1s_transitions_as.csv"

@@ -1,0 +1,40 @@
+DATASET_NAME: "CAF106"
+
+datasetparams:
+  exclude_neural_files:
+    - Headstages_512_Channels_int16_2021-06-08_10-35-19_CORRECTED.bin
+  test_video_files:
+    - CAF00106-20210607T150840-160841.mp4
+    - CAF00106-20210607T160841-170841.mp4
+    - CAF00106-20210607T170841-180842.mp4
+    - CAF00106-20210607T180842-190842.mp4
+    - CAF00106-20210607T190842-200843.mp4
+    - CAF00106-20210607T200843-210843.mp4
+  neural_files_basepath: s3://hengenlab/CAF106/Neural_Data/
+  labels_file: s3://hengenlab/CAF106/Labels/labels_sleepstate_v2.1_CAF106.npz
+  n_channels: 512
+  video_fps: 30
+  regions:
+    - [M1M2, 0, 64]
+    - [S1, 64, 128]
+    - [CP, 128, 192]
+    - [NAC, 192, 256]
+    - [LGN, 256, 320]
+    - [BADPROBE, 320, 384]
+    - [SC, 384, 448]
+    - [V1V2, 448, 512]
+
+datapreprocessingparams:
+  neural_bin_files_per_sleepstate_file: 288
+  video_files_basepath: s3://hengenlab/CAF106/Video/
+  sleepstate_files_basepath: s3://hengenlab/CAF106/SleepState/
+  syncpulse_files_zip: s3://hengenlab/CAF106/SyncPulse.zip
+  manual_video_neural_offset_sec: 201  # 0:03:21 offset (neural: 11:05:17, video: 11:08:38)
+  # Note: In CAF106 the SyncPulse digital recordings have a duty cycle of 480 FPS.
+  #       to This was a recording error. To side step the problem the CAF77
+  #       SyncPulse files were substituted in for the erroneous CAF106 SyncPulse files.
+  #       This solution works because the manual_video_neural_offset_sec is set, so the
+  #       ecube time of the SyncPulse in the CAF77 file was set manually.
+
+flickercalling:
+  transition_labels: "s3://hengenlab/CAF106/flicker-calling/CAF106_1s_transitions_as.csv"

@@ -1,0 +1,88 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dp-ss-opflow-${DATASET_NAME_LOWERCASE}-${UNIQUEID}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: ${USER}-container
+        image: localhost:30081/davidparks21/hlmice:${TAG}
+        imagePullPolicy: Always
+        resources:
+
+          requests:
+            cpu: "8"
+            memory: "2Gi"
+            ephemeral-storage: 300Gi
+          limits:
+            cpu: "8"
+            memory: "10Gi"
+            ephemeral-storage: 500Gi
+
+        command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
+        args:
+          - >-
+            scripts/optical_flow.sh ${DATASET_NAME} ${VIDEO_FILE} ${parallelism}
+        env:
+          - name: "ENDPOINT_URL"
+            value: "http://rook-ceph-rgw-nautiluss3.rook"
+          - name: "S3_ENDPOINT"
+            value: "rook-ceph-rgw-nautiluss3.rook"
+          - name: "S3_USE_HTTPS"
+            value: "0"
+          - name: "VERSION"
+            value: "${VERSION}"
+          - name: "SAMPLE_WIDTH"
+            value: "${SAMPLE_WIDTH}"
+          - name: "INCLUDE_CHANNELS"
+            value: "${INCLUDE_CHANNELS}"
+          - name: "DATASET_NAME"
+            value: "${DATASET_NAME}"
+          - name: "DATASET_NAME_LOWERCASE"
+            value: "${DATASET_NAME_LOWERCASE}"
+          - name: "USER"
+            value: "${USER}"
+          - name: "CONTAINER"
+            value: "${CONTAINER}"
+        volumeMounts:
+          - name: prp-s3-credentials
+            mountPath: "/root/.aws/credentials"
+            subPath: "credentials"
+          - name: prp-s3-credentials
+            mountPath: "/root/.s3cfg"
+            subPath: ".s3cfg"
+          - name: kube-config
+            mountPath: "/root/.kube"
+          - name: ephemeral
+            mountPath: "/tmp"
+
+      tolerations:
+        - key: "nautilus.io/chase-ci"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                  - none
+
+      restartPolicy: Never
+      volumes:
+        # Secrets file for nautilus s3 credentials .aws/credentials and .s3cfg
+        - name: prp-s3-credentials
+          secret:
+            secretName: prp-s3-credentials
+        - name: kube-config
+          secret:
+            secretName: kube-config
+        # Ephemeral storage
+        - name: ephemeral
+          emptyDir: {}

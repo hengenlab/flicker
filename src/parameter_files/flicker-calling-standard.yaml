@@ -1,0 +1,6 @@
+wide_filter_secs: 35
+narrow_filter_secs: 1
+threshold: 0.75  # confidence threshold to call a blip (0-1)
+
+# todo remove min_max_times
+#min_max_times: null  # use if you only want to call for a short continuous segment of all classifications, is a list of 2 values.

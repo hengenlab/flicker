@@ -1,0 +1,40 @@
+
+# Global variables will be replaced using bash style variable substitution when this file is parsed.
+# Variables can come from this file (use dot notation for hierarchical variable names) or the users environment.
+# When there is a conflict the users environment takes precedence.
+# Bash variable substitution will follow type casting rules of YAML.
+
+# global variables and a list of yaml files to be parsed and added to this configuration file dynamically
+# note that all includes are path-relative to this file, S3 includes should be a full S3 url.
+VERSION: "wnr-v14"
+SAMPLE_WIDTH_BEFORE: 8192
+SAMPLE_WIDTH_AFTER: 8192
+HP_MAX_PREDICT_TIME_FPS: 900
+INCLUDE_MODULES: "wnr"
+INCLUDE_CHANNELS: 192:256
+
+# model hyperparameters passed to build_model
+modelparams:
+  sample_width_before: "{SAMPLE_WIDTH_BEFORE}"
+  sample_width_after: "{SAMPLE_WIDTH_AFTER}"
+  include_channels: "{INCLUDE_CHANNELS}"
+  hp_max_predict_time_fps: "{HP_MAX_PREDICT_TIME_FPS}"
+
+evaluateparams:
+  model_class: models.model_sleepstate_wnr_v14.ModelSleepStateWNR
+  dataset_class: dataset.DatasetSleepStateEvaluate
+  output_file: ""
+  load_model: "s3://hengenlab/{DATASET_NAME}/Runs/wnr-v14-centered16k-perregion192-256/Model/"
+
+# common dataset parameters (those not stored in dataset-DATASET_NAME.yaml)
+datasetparams:
+  n_workers: 12
+  batch_size: 40
+  prefetch: 1
+  prefetch_to_gpu: true
+  sample_width_before: "{SAMPLE_WIDTH_BEFORE}"
+  sample_width_after: "{SAMPLE_WIDTH_AFTER}"
+  hp_max_predict_time_fps: "{HP_MAX_PREDICT_TIME_FPS}"
+  include_modules: "{INCLUDE_MODULES}"
+  exclude_test_video_files: false
+  include_channels: "{INCLUDE_CHANNELS}"

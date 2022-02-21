@@ -1,0 +1,169 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dp-train-${DATASET_NAME_LOWERCASE}-${VERSION}${UNIQUEID}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: ${USER}-container
+        image: localhost:30081/davidparks21/hlmice:${TAG}
+        imagePullPolicy: Always
+        resources:
+
+          # GPU Run
+          requests:
+            cpu: "4"
+            memory: "12Gi"
+          limits:
+            cpu: "7"
+            memory: "36Gi"
+            nvidia.com/gpu: 1
+
+#          # CPU Run
+#          requests:
+#            cpu: "6"
+#            memory: "22Gi"
+#          limits:
+#            cpu: "11"
+#            memory: "40Gi"
+
+        command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
+        args:
+          - >-
+            echo "ENDPOINT_URL: ${ENDPOINT_URL}, DATASET_NAME: ${DATASET_NAME}, VERSION: ${VERSION}"
+            &&
+            aws --endpoint ${ENDPOINT_URL} s3 ls
+            &&
+            (aws --endpoint ${ENDPOINT_URL} s3 ls s3://hengenlab/${DATASET_NAME}/Runs/${VERSION}/Model/ ||
+            python -u train.py
+            --params parameter_files/${PARAMETERS}/train-params.yaml
+            --params parameter_files/dataset-${DATASET_NAME}.yaml
+            --override "${OVERRIDE}")
+            &&
+            (aws --endpoint ${ENDPOINT_URL} s3 ls s3://hengenlab/${DATASET_NAME}/Runs/${VERSION}/Results ||
+            python -u evaluate.py
+            --params parameter_files/${PARAMETERS}/eval-params.yaml
+            --params parameter_files/dataset-${DATASET_NAME}.yaml
+            --override "${OVERRIDE}")
+            &&
+            (aws --endpoint ${ENDPOINT_URL} s3 ls s3://hengenlab/${DATASET_NAME}/Runs/${VERSION}/Results/summary_statistics_${DATASET_NAME}.txt ||
+            python -u scripts/viz_ss_summary_stats.py
+            --predictions_filename s3://hengenlab/${DATASET_NAME}/Runs/${VERSION}/Results/predictions_${DATASET_NAME}.csv.zip
+            --output_filename s3://hengenlab/${DATASET_NAME}/Runs/${VERSION}/Results/summary_statistics_${DATASET_NAME}.txt
+            --params parameter_files/dataset-${DATASET_NAME}.yaml)
+        env:
+          - name: "AWS_PROFILE"
+            value: "default"
+          - name: "S3_USE_HTTPS"
+            value: "0"
+          - name: "TF_CPP_MIN_LOG_LEVEL"
+            value: "3"
+          - name: "VERSION"
+            value: "${VERSION}"
+          - name: "SAMPLE_WIDTH"
+            value: "${SAMPLE_WIDTH}"
+          - name: "INCLUDE_CHANNELS"
+            value: "${INCLUDE_CHANNELS}"
+          - name: "DATASET_NAME"
+            value: "${DATASET_NAME}"
+          - name: "DATASET_NAME_LOWERCASE"
+            value: "${DATASET_NAME_LOWERCASE}"
+          - name: "USER"
+            value: "${USER}"
+          - name: "CONTAINER"
+            value: "${CONTAINER}"
+          - name: "COMET_LOGGING_CONSOLE"
+            value: "INFO"
+          - name: "COMET_LOGGING_FILE"
+            value: "/tmp/comet.log"
+          - name: "COMET_LOGGING_FILE_LEVEL"
+            value: "DEBUG"
+
+          # Ceph (internal)
+          - name: "ENDPOINT_URL"
+            value: "http://rook-ceph-rgw-nautiluss3.rook"  # ceph internal
+          - name: "S3_ENDPOINT"
+            value: "rook-ceph-rgw-nautiluss3.rook" # ceph internal
+
+#          # SeaweedFS (internal)
+#          - name: "ENDPOINT_URL"
+#            value: "http://seaweed-filer.seaweedfs:8333"  # seaweedFS internal
+#          - name: "S3_ENDPOINT"
+#            value: "seaweed-filer.seaweedfs:8333"  # seaweedFS internal
+
+        volumeMounts:
+
+          # Ceph credentials
+          - name: "prp-s3-credentials"
+            mountPath: "/root/.aws/credentials"
+            subPath: "credentials"
+          - name: "prp-s3-credentials"
+            mountPath: "/root/.s3cfg"
+            subPath: ".s3cfg"
+
+#          # SeaweedFS credentials
+#          - name: "dfparks-credentials"
+#            mountPath: "/root/.aws/credentials"
+#            subPath: "credentials.swfs"
+
+          # kube config
+          - name: "kube-config"
+            mountPath: "/root/.kube"
+          # SystemV shared memory
+          - name: "dshm"
+            mountPath: "/dev/shm"
+
+      tolerations:
+        - key: "nautilus.io/chase-ci"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+#              # GPU runs only
+#              - key: gpu-type
+#                operator: In
+#                values:
+#                  - V100
+#                  - TITANRTX
+#                  - titan-xp
+#                  - M4000
+#                  - 2080Ti
+#              - key: gpu-type
+#                operator: NotIn
+#                values:
+#                - A40
+#                - A100
+#                - K40
+#                - M4000
+#              # Host blacklist
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                  - suncave-13                # 9nov: GPU sync failed
+                  - epic001.clemson.edu       # 16nov: Driver error timeout
+                  - prp-gpu-6.t2.ucsd.edu     # 16nov: GPU is lost
+
+      restartPolicy: Never
+      volumes:
+        # Temporary seaweedFS credentials
+        - name: dfparks-credentials
+          secret:
+            secretName: dfparks-credentials
+        # Secrets file for nautilus s3 credentials .aws/credentials and .s3cfg
+        - name: prp-s3-credentials
+          secret:
+            secretName: prp-s3-credentials
+        - name: kube-config
+          secret:
+            secretName: kube-config
+        # Shared memory (necessary for Python's multiprocessing.shared_memory module to work)
+        - name: dshm
+          emptyDir:
+            medium: Memory

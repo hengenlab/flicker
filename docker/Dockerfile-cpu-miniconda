@@ -1,0 +1,110 @@
+#FROM tensorflow/tensorflow:1.14.0-gpu-py3
+FROM davidparks21/tensorflow:py382-tf22
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# Plotly depedencies required for plotting to image and PDF
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        xvfb \
+        xauth \
+        libgtk2.0-0 \
+        libxtst6 \
+        libxss1 \
+        libgconf-2-4 \
+        libnss3 \
+        libasound2 && \
+    mkdir -p /opt/orca && \
+    cd /opt/orca && \
+    wget https://github.com/plotly/orca/releases/download/v1.2.1/orca-1.2.1-x86_64.AppImage && \
+    chmod +x orca-1.2.1-x86_64.AppImage && \
+    ./orca-1.2.1-x86_64.AppImage --appimage-extract && \
+    rm orca-1.2.1-x86_64.AppImage && \
+    printf '#!/bin/bash \nxvfb-run --auto-servernum --server-args "-screen 0 640x480x24" /opt/orca/squashfs-root/app/orca "$@"' > /usr/bin/orca && \
+    chmod +x /usr/bin/orca
+
+# Apt packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget \
+        curl \
+        dnsutils \
+        nano \
+        zip \
+        git \
+        s3cmd \
+        awscli \
+        ffmpeg \
+        glances \
+        screen \
+        fonts-freefont-ttf \
+        inotify-tools \
+        parallel \
+        pciutils \
+        ncdu \
+        libbz2-dev \
+        gettext \
+        apt-transport-https \
+        gnupg2 \
+        time \
+        openssl \
+        redis-tools \
+        ca-certificates
+
+# Custom installs: kubectl, rclone, pymer4 R <--> Python stats package
+RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list && \
+    apt-get update && \
+    # kubectl
+    apt-get install -y --no-install-recommends \
+        kubectl && \
+    # rclone
+    curl https://rclone.org/install.sh | bash
+
+# miniconda and pymer4 package - note, this version of python is not GPU enabled for TF, the normal TF python is at /usr/local/bin/python
+RUN cd /tmp/ && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh && \
+    chmod +x Miniconda3-py38_4.10.3-Linux-x86_64.sh && \
+    ./Miniconda3-py38_4.10.3-Linux-x86_64.sh -b && \
+    export PATH=/root/miniconda3/bin:/root/miniconda3/condabin:${PATH} && \
+    /root/miniconda3/bin/conda install -y -c ejolly -c defaults -c conda-forge pymer4==0.7.2 && \
+    rm Miniconda3-py38_4.10.3-Linux-x86_64.sh && true && true
+ENV PATH=/root/miniconda3/bin:/root/miniconda3/condabin:${PATH}
+
+# Pip installs
+COPY requirements.txt /project_neural_mouse/requirements.txt
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --no-cache-dir -r /project_neural_mouse/requirements.txt
+
+# PRP environment variables, when running in the PRP these values will be overriden with internal endpoints
+ENV ENDPOINT_URL="https://s3-west.nrp-nautilus.io"
+# Tensorflow environment variables
+ENV S3_ENDPOINT="s3-west.nrp-nautilus.io"
+ENV S3_USE_HTTPS=1
+ENV AWS_LOG_LEVEL=3
+#ENV S3_VERIFY_SSL=0  # to use in case a cert expires
+# Environment setup
+ENV PYTHONPATH="/project_neural_mouse/src:/project_neural_mouse/lib/braingeneerspy:/project_neural_mouse/lib/neuraltoolkit:/project_neural_mouse/lib/criticality_hlab"
+ENV PYTHONWARNINGS="ignore"
+ENV PATH=".:/project_neural_mouse/k8s:${PATH}"
+RUN echo 'alias aws3="aws --endpoint https://s3.nautilus.optiputer.net s3"' >> ~/.bashrc && \
+    echo 'alias awsn="aws --endpoint https://s3.nautilus.optiputer.net"' >> ~/.bashrc && \
+    echo 'alias ll="ls -alh --color"' >> ~/.bashrc && \
+    echo 'alias lsw="watch -n 0.25 ls -alh"' >> ~/.bashrc && \
+    echo 'alias nvw="watch -n 0.1 nvidia-smi"' >> ~/.bashrc && \
+    echo 'alias k="kubectl"' >> ~/.bashrc && \
+    echo 'alias s3="python -m s4cmd --endpoint-url https://s3.nautilus.optiputer.net"' >> ~/.bashrc && \
+    echo 'source /project_neural_mouse/k8s/aliases' >> ~/.bashrc && \
+    printf 'shell "/bin/bash"\ntermcapinfo xterm* ti@:te@\nterm xterm-color;' >> ~/.screenrc && \
+    mkdir -p /project_neural_mouse/checkpoints/dev && \
+    mkdir -p /project_neural_mouse/tmp && \
+    touch /etc/mtab
+
+# Baked in project directory
+#COPY notebooks /project_neural_mouse/notebooks
+COPY lib /project_neural_mouse/lib
+COPY Makefile /project_neural_mouse/
+COPY src /project_neural_mouse/src
+COPY k8s /project_neural_mouse/k8s
+WORKDIR /project_neural_mouse/src

@@ -1,0 +1,31 @@
+# dataset parameters passed to the dataset object
+DATASET_NAME: "CAF42"
+
+datasetparams:
+  test_video_files:
+    - e3v81a6-20200914T172236-182237.mp4
+    - e3v81a6-20200914T182237-192238.mp4
+    - e3v81a6-20200914T192238-202238.mp4
+    - e3v81a6-20200914T202238-212239.mp4
+    - e3v81a6-20200914T212239-222240.mp4
+    - e3v81a6-20200914T222240-232241.mp4
+  neural_files_basepath: s3://hengenlab/CAF42/Neural_Data/
+  labels_file: s3://hengenlab/CAF42/Labels/labels_sleepstate_v2.1_CAF42.npz
+  n_channels: 320
+  video_fps: 15
+  regions:
+    - [M1M2, 0, 64]
+    - [ACAD, 64, 128]
+    - [CA1, 128, 192]
+    - [RSPV, 192, 256]
+    - [V1V2, 256, 320]
+
+datapreprocessingparams:
+  neural_bin_files_per_sleepstate_file: 288
+  video_files_basepath: s3://hengenlab/CAF42/Video/
+  sleepstate_files_basepath: s3://hengenlab/CAF42/SleepState/
+  syncpulse_files_zip: s3://hengenlab/CAF42/SyncPulse.zip
+  manual_video_neural_offset_sec: 119  # 1m 59s offset, manually computed from file timestamps
+
+flickercalling:
+  transition_labels: "s3://hengenlab/CAF42/flicker-calling/CAF42_1s_transitions_as.xlsx"

@@ -1,0 +1,92 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${USER}-ss-eval-${DATASET_NAME_LOWERCASE}-${VERSION}${UNIQUEID}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: ${USER}-container
+        image: localhost:30081/davidparks21/hlmice:${TAG}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "3"
+            memory: "5Gi"
+          limits:
+            cpu: "16"
+            memory: "24Gi"
+            nvidia.com/gpu: 1
+        command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
+        args:
+          - >-
+            python -u evaluate.py
+            --params parameter_files/${PARAMETERS}/eval-params.yaml
+            --params parameter_files/dataset-${DATASET_NAME}.yaml
+            --override "${OVERRIDE}"
+        env:
+          - name: "ENDPOINT_URL"
+            value: "http://rook-ceph-rgw-nautiluss3.rook"
+          - name: "S3_ENDPOINT"
+            value: "rook-ceph-rgw-nautiluss3.rook"
+          - name: "S3_USE_HTTPS"
+            value: "0"
+          - name: "TF_CPP_MIN_LOG_LEVEL"
+            value: "3"
+          - name: "VERSION"
+            value: "${VERSION}"
+          - name: "SAMPLE_WIDTH"
+            value: "${SAMPLE_WIDTH}"
+          - name: "INCLUDE_CHANNELS"
+            value: "${INCLUDE_CHANNELS}"
+          - name: "DATASET_NAME"
+            value: "${DATASET_NAME}"
+          - name: "DATASET_NAME_LOWERCASE"
+            value: "${DATASET_NAME_LOWERCASE}"
+          - name: "USER"
+            value: "${USER}"
+          - name: "CONTAINER"
+            value: "${CONTAINER}"
+          - name: "COMET_LOGGING_CONSOLE"
+            value: "INFO"
+          - name: "COMET_LOGGING_FILE"
+            value: "/tmp/comet.log"
+          - name: "COMET_LOGGING_FILE_LEVEL"
+            value: "DEBUG"
+        volumeMounts:
+          - name: "prp-s3-credentials"
+            mountPath: "/root/.aws/credentials"
+            subPath: "credentials"
+          - name: "prp-s3-credentials"
+            mountPath: "/root/.s3cfg"
+            subPath: ".s3cfg"
+          - name: "kube-config"
+            mountPath: "/root/.kube"
+          - name: "dshm"
+            mountPath: "/dev/shm"
+      nodeSelector:
+        nautilus.io/disktype: nvme
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: gpu-type
+                operator: NotIn # Use NotIn for other types
+                values:
+                - K40
+                - M4000
+      restartPolicy: Never
+      volumes:
+        # Secrets file for nautilus s3 credentials .aws/credentials and .s3cfg
+        - name: prp-s3-credentials
+          secret:
+            secretName: prp-s3-credentials
+        - name: kube-config
+          secret:
+            secretName: kube-config
+        # Shared memory (necessary for Python's multiprocessing.shared_memory module to work)
+        - name: dshm
+          emptyDir:
+            medium: Memory

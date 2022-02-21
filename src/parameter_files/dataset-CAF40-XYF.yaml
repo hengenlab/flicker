@@ -1,0 +1,18 @@
+# dataset parameters passed to the dataset object
+DATASET_NAME: "CAF40-XYF"
+
+datasetparams:
+  test_video_files:
+    - e3v8108-20200905T153204-163205.mp4
+  neural_files_basepath: s3://hengenlab/CAF40-XYF/Neural_Data/
+  labels_file: s3://hengenlab/CAF40-XYF/Labels/labels_sleepstate_v2.1_CAF40-XYF.npz
+  n_channels: 64
+  video_fps: 15
+  regions:
+    - none  # todo
+
+datapreprocessingparams:
+  neural_bin_files_per_sleepstate_file: 12
+  video_files_basepath: s3://hengenlab/CAF40-XYF/Video/
+  sleepstate_files_basepath: s3://hengenlab/CAF40-XYF/SleepState/
+  syncpulse_files_zip: s3://hengenlab/CAF40-XYF/SyncPulse.zip

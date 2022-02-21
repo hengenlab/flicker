@@ -1,0 +1,36 @@
+DATASET_NAME: "CAF106_sleepdep"
+
+datasetparams:
+#  exclude_neural_files:
+#    - Headstages_512_Channels_int16_2021-06-08_10-35-19_CORRECTED.bin
+#  test_video_files:
+#    - CAF00106-20210607T150840-160841.mp4
+#    - CAF00106-20210607T160841-170841.mp4
+#    - CAF00106-20210607T170841-180842.mp4
+#    - CAF00106-20210607T180842-190842.mp4
+#    - CAF00106-20210607T190842-200843.mp4
+#    - CAF00106-20210607T200843-210843.mp4
+  neural_files_basepath: s3://hengenlab/CAF106_sleepdep/Neural_Data/
+  labels_file: s3://hengenlab/CAF106_sleepdep/Labels/labels_sleepstate_v2.1_CAF106_sleepdep.npz
+  n_channels: 512
+  video_fps: 15
+  regions:
+    - [M1M2, 0, 64]
+    - [S1, 64, 128]
+    - [CP, 128, 192]
+    - [NAC, 192, 256]
+    - [LGN, 256, 320]
+    - [BADPROBE, 320, 384]
+    - [SC, 384, 448]
+    - [V1V2, 448, 512]
+
+datapreprocessingparams:
+  video_files_basepath: s3://hengenlab/CAF106_sleepdep/Video/
+  sleepstate_files_basepath: s3://hengenlab/CAF106_sleepdep/SleepState/
+  syncpulse_files_zip: s3://hengenlab/CAF106_sleepdep/SyncPulse.zip
+#  neural_bin_files_per_sleepstate_file: 717
+#  manual_video_neural_offset_sec: 0  # No neural offset in this case, but zero must be specified due to the following issue
+#  Note: In CAF106_sleepdep the SyncPulse digital recordings have a duty cycle of 480 FPS.
+
+flickercalling:
+  transition_labels: ""

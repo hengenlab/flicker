@@ -1,0 +1,51 @@
+
+# Global variables will be replaced using bash style variable substitution when this file is parsed.
+# Variables can come from this file (use dot notation for hierarchical variable names) or the users environment.
+# When there is a conflict the users environment takes precedence.
+# Bash variable substitution will follow type casting rules of YAML.
+
+# global variables and a list of yaml files to be parsed and added to this configuration file dynamically
+# note that all includes are path-relative to this file, S3 includes should be a full S3 url.
+VERSION: "wnr-v14"
+BATCH_SIZE: 1
+SAMPLE_WIDTH_BEFORE: none
+SAMPLE_WIDTH_AFTER: none
+HP_MAX_PREDICT_TIME_FPS: 900
+INCLUDE_MODULES: "wnr"
+INCLUDE_CHANNELS: none  # to be overridden at command line
+
+# model hyperparameters passed to build_model
+modelparams:
+  sample_width_before: "{SAMPLE_WIDTH_BEFORE}"
+  sample_width_after: "{SAMPLE_WIDTH_AFTER}"
+  include_channels: "{INCLUDE_CHANNELS}"
+  hp_max_predict_time_fps: "{HP_MAX_PREDICT_TIME_FPS}"
+  l2_regularization: 0.000001
+  learning_rate: {"boundaries": [10000, 20000, 50000, 75000], "values": [0.0001, 0.00007, 0.00003, 0.00001, 0.000005]}
+
+# training specific parameters passed to train function
+trainingparams:
+  model_class: models.model_sleepstate_wnr_v14.ModelSleepStateWNR
+  dataset_class: dataset.DatasetSleepStateTrain
+  training_steps:  175000
+#  checkpoint: "s3://hengenlab/checkpoints/{DATASET_NAME}/"
+  checkpoint: none
+  checkpoint_final: "s3://hengenlab/{DATASET_NAME}/Runs/{VERSION}/Model/"
+  disable_comet: true
+  testeval_on_checkpoint: false
+  debug: false
+
+# common dataset parameters (those not stored in dataset-DATASET_NAME.yaml)
+datasetparams:
+  n_workers: 70
+  batch_size: "{BATCH_SIZE}"
+  prefetch: 1
+  data_echo_factor: 1
+  prefetch_to_gpu: true
+  sample_width_before: "{SAMPLE_WIDTH_BEFORE}"
+  sample_width_after: "{SAMPLE_WIDTH_AFTER}"
+  hp_max_predict_time_fps: "{HP_MAX_PREDICT_TIME_FPS}"
+  include_modules: "{INCLUDE_MODULES}"
+  exclude_test_video_files: true
+  include_channels: "{INCLUDE_CHANNELS}"
+#  use_single_channel_data: "{INCLUDE_CHANNELS}"   # Forces uses of data files ending in ".single-channel-###.bin"

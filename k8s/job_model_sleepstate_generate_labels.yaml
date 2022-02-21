@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${USER}-ss-${DATASET_NAME_LOWERCASE}-genlabels
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - nautilusc01.sci.cwru.edu  # bash exit status 4
+      containers:
+      - name: ${USER}-container
+        image: localhost:30081/davidparks21/hlmice:${TAG}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+            ephemeral-storage: 300Gi
+          limits:
+            cpu: "4"
+            memory: "12Gi"
+        command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
+        args:
+          - >-
+            python -u scripts/model_sleepstate_generate_labels.py
+            --output "s3://hengenlab/${DATASET_NAME}/Labels/labels_sleepstate_v2.1_${DATASET_NAME}.npz"
+            --overwrite
+            --dataset_yaml "parameter_files/dataset-${DATASET_NAME}.yaml"
+            --include_unlabeled
+        env:
+          - name: "ENDPOINT_URL"
+            value: "http://rook-ceph-rgw-nautiluss3.rook"
+          - name: "AWS_S3_ENDPOINT"
+            value: "http://rook-ceph-rgw-nautiluss3.rook"
+        volumeMounts:
+          - name: prp-s3-credentials
+            mountPath: "/root/.aws/credentials"
+            subPath: "credentials"
+          - name: prp-s3-credentials
+            mountPath: "/root/.s3cfg"
+            subPath: ".s3cfg"
+          - name: ephemeral
+            mountPath: "/tmp"
+      nodeSelector:
+        #nautilus.io/disktype: nvme
+      restartPolicy: Never
+      volumes:
+        # Secrets file for nautilus s3 credentials .aws/credentials and .s3cfg
+        - name: prp-s3-credentials
+          secret:
+            secretName: prp-s3-credentials
+        # Ephemeral storage
+        - name: ephemeral
+          emptyDir: {}
